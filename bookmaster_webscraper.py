@@ -13,48 +13,109 @@ Created on Sun Apr  2 22:23:43 2023
 #2nd: scrape the books
 #3rd: scrape the info of the books
 
+#return a list of dictionaries, each dictionary contain the information of each book
+
 from bs4 import BeautifulSoup
 import requests
 
+main_url = "http://books.toscrape.com/"
+main_page = requests.get(main_url).text
+main_soup = BeautifulSoup(main_page,"html.parser")
 
 
-def fetch_by_category():
-    #get categories info  
 
-    html_categories = requests.get("http://books.toscrape.com/").text
-    soup = BeautifulSoup(html_categories,"lxml")
 
-    sector = soup.find("ul", class_ = "nav nav-list")
-    list_of_categories = sector.li.ul
+def fetch_categories():
+    side_categories = main_soup.find_all("div", class_="side_categories")[0]
+    categories_list = side_categories.findChild().ul.find_all("li")
+    
+    global categories
+    categories = list(
+        map(
+            lambda name: name.replace("\n", "").strip(),
+            list(map(lambda tag: tag.a.getText(), categories_list)),
+        ),
+    )
 
-    for category in list_of_categories:
-        category_name = category.a.text
-        link_to_category = category.a["href"]
+    global category_links
+    category_links = []
 
-        print(f"Category Name: {category_name}")
-        print(f"link:{link_to_category}")
 
+    for category_item in categories_list:
+        category_link = category_item.find("a")["href"]
+        category_links.append(category_link)
+
+
+def fetch_links_of_categories():
+    fetch_categories()
+    
+    global urls_of_categories
+    urls_of_categories = []
+
+    for link in category_links:
+        url = main_url + link
+        urls_of_categories.append(url)
+    
 
 
 def fetch_books():
-    html_books = requests.get(link_to_category).text
-    soup = BeautifulSoup(html_books,"lxml")
+    fetch_links_of_categories()
 
-    books = soup.find("li", class_ = "col-xs-6 col-sm-4 col-md-3 col-lg-3")
+    global books_total_titles
+    books_total_titles = []
+
+    global books_total_links
+    books_total_links =[]
     
-    for book in books:
-        book_title = book.find("h3").a.text
-        book_link = book.find("h3").a["href"]
+
+    category_index = 0
+    
+    for link in urls_of_categories:
+
+        category_page = requests.get(link).text
+        category_soup = BeautifulSoup(category_page,"html.parser")
+        books_list = category_soup.find_all("article", class_="product_pod")
+
+        each_category_titles = []
+        each_category_links = []
+        
+
+        for book in books_list:
+            book_title = book.h3.a.text
+            book_link = book.h3.a["href"]
+            each_category_titles.append(book_title)
+            each_category_links.append(book_link)
 
 
-        print(f"Book Title: {book_title}:")
-        print(f'Book link:{book_link}')
+        books_total_titles.append(each_category_titles)
+        books_total_links.append(each_category_links)
 
-        fetch_book_info()
+def organize_book_info():
+    fetch_books()
+    
+    all_books_info = []
 
-def fetch_book_info():
-    html_info = requests.get(book_link).text
-    soup = BeautifulSoup(html_info,"lxml")
 
-if __name__ == "__main__":
-    fetch_by_category()
+
+    for books_by_categories in books_total_titles:
+
+        flag = 0
+        
+        for book_title in books_by_categories:
+            book_index = book_title.index(book_title)
+
+            book_info ={}
+            
+            book_info["Title: "] = book_title
+            book_info["Category: "] = categories[flag]
+            book_info["Link: "] = books_total_links[flag][book_index]
+
+            flag += 1
+
+            all_books_info.append(book_info)
+
+        print(all_books_info)
+
+organize_book_info()
+            
+            
